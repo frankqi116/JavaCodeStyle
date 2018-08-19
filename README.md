@@ -2,17 +2,19 @@
 
 This doc is only for improving Android App team members communicate and increasing code quality.
 
-[TOC]
-
 ## Recommended reading
 - [Effective Java](http://www.amazon.com/Effective-Java-Edition-Joshua-Bloch/dp/0321356683)
 
 ## Coding style
 
 ### Formatting
+
 Recommand short cut:
-Mac:
+
+For Mac:
+
 Command + Option + L
+
 Command + Option + O
 
 #### Indent style
@@ -362,3 +364,342 @@ This is advisable even for fields/methods with private visibility.
       }
     }
 
+## Best practices
+
+### Defensive programming
+
+#### Preconditions
+
+As a convention, object parameters to public constructors and methods should
+always be checked against null, unless null is explicitly allowed.
+
+    :::java
+    // Bad.
+    class AsyncFileReader {
+      void readLater(File file, Closure<String> callback) {
+        scheduledExecutor.schedule(new Runnable() {
+          @Override public void run() {
+            callback.execute(readSync(file));
+          }
+        }, 1L, TimeUnit.HOURS);
+      }
+    }
+
+    // Good.
+    class AsyncFileReader {
+      void readLater(File file, Closure<String> callback) {
+        checkNotNull(file);
+        checkArgument(file.exists() && file.canRead(), "File must exist and be readable.");
+        checkNotNull(callback);
+
+        scheduledExecutor.schedule(new Runnable() {
+          @Override public void run() {
+            callback.execute(readSync(file));
+          }
+        }, 1L, TimeUnit.HOURS);
+      }
+    }
+
+#### Minimize visibility
+
+In a class API, you should support access to any methods and fields that you make accessible.
+
+    :::java
+    public class Parser {
+      // Bad.
+      public Map<String, String> rawFields;
+
+      // Bad.
+      public String readConfigLine() {
+        ..
+      }
+    }
+
+    // Good.
+    class Parser {
+      private final Map<String, String> rawFields;
+
+      private String readConfigLine() {
+        ..
+      }
+    }
+
+#### Be wary of null
+Use `@Nullable` where prudent.
+
+#### Clean up with finally
+
+    :::java
+    FileInputStream in = null;
+    try {
+      ...
+    } catch (IOException e) {
+      ...
+    } finally {
+      Closeables.closeQuietly(in);
+    }
+
+Examples:
+
+    :::java
+    // Bad.
+    mutex.lock();
+    throw new NullPointerException();
+    // Mutex is never unlocked.
+    mutex.unlock();
+
+    // Good.
+    mutex.lock();
+    try {
+      throw new NullPointerException();
+    } finally {
+      mutex.unlock();
+    }
+
+    // Bad.
+    if (receivedBadMessage) {
+      conn.sendMessage("Bad request.");
+      // Connection is not closed if sendMessage throws.
+      conn.close();
+    }
+
+    // Good.
+    if (receivedBadMessage) {
+      try {
+        conn.sendMessage("Bad request.");
+      } finally {
+        conn.close();
+      }
+    }
+
+
+### Clean code
+
+#### Disambiguate
+Favor readability - if there's an ambiguous and unambiguous route, always favor unambiguous.
+
+    :::java
+    // Bad.
+    // Depending on the font, it may be difficult to discern 1001 from 100l.
+    long count = 100l + n;
+
+    // Good.
+    long count = 100L + n;
+
+#### Remove dead code
+Delete unused code (imports, fields, parameters, methods, classes).
+
+#### Always use type parameters
+
+We conventionally include type parameters on every declaration where the type is parameterized.
+Even if the type is unknown, it's preferable to include a wildcard or wide type.
+
+#### Avoid typecasting
+Typecasting is a sign of poor class design, and can often be avoided.  An obvious exception here is
+overriding
+[equals](http://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#equals(java.lang.Object)).
+
+#### Exceptions
+##### Catch narrow exceptions
+Sometimes when using try/catch blocks, it may be tempting to just `catch Exception`, `Error`,
+or `Throwable` so you don't have to worry about what type was thrown.  This is usually a bad idea,
+as you can end up catching more than you really wanted to deal with.  For example,
+`catch Exception` would capture `NullPointerException`, and `catch Throwable` would capture
+`OutOfMemoryError`.
+
+    :::java
+    // Bad.
+    try {
+      storage.insertUser(user);
+    } catch (Exception e) {
+      LOG.error("Failed to insert user.");
+    }
+
+    try {
+      storage.insertUser(user);
+    } catch (StorageException e) {
+      LOG.error("Failed to insert user.");
+    }
+
+##### Don't swallow exceptions
+An empty `catch` block is usually a bad idea, as you have no signal of a problem.  Coupled with
+
+##### When interrupted, reset thread interrupted state
+Many blocking operations throw
+[InterruptedException](http://docs.oracle.com/javase/7/docs/api/java/lang/InterruptedException.html)
+so that you may be awaken for events like a JVM shutdown.  When catching `InterruptedException`,
+it is good practice to ensure that the thread interrupted state is preserved.
+
+IBM has a good [article](http://www.ibm.com/developerworks/java/library/j-jtp05236/index.html) on
+this topic.
+
+    :::java
+    // Bad.
+    //   - Surrounding code (or higher-level code) has no idea that the thread was interrupted.
+    try {
+      lock.tryLock(1L, TimeUnit.SECONDS)
+    } catch (InterruptedException e) {
+      LOG.info("Interrupted while doing x");
+    }
+
+    // Good.
+    //   - Interrupted state is preserved.
+    try {
+      lock.tryLock(1L, TimeUnit.SECONDS)
+    } catch (InterruptedException e) {
+      LOG.info("Interrupted while doing x");
+      Thread.currentThread().interrupt();
+    }
+
+##### Throw appropriate exception types
+Let your API users obey [catch narrow exceptions](#catch-narrow-exceptions), don't throw Exception.
+Even if you are calling another naughty API that throws Exception, at least hide that so it doesn't
+bubble up even further.  You should also make an effort to hide implementation details from your
+callers when it comes to exceptions.
+
+    :::java
+    // Bad.
+    interface DataStore {
+      String fetchValue(String key) throws Exception;
+    }
+
+    // Good.
+    // A custom exception type insulates the user from the implementation.
+    // Different implementations aren't forced to abuse irrelevant exception types.
+    interface DataStore {
+      String fetchValue(String key) throws StorageException;
+
+      static class StorageException extends Exception {
+        ...
+      }
+    }
+
+### Use newer/better libraries
+
+#### StringBuilder over StringBuffer
+Please just do it. This will help other people.
+
+#### List over Vector
+
+### equals()
+
+### TODOs
+
+#### Leave TODOs early and often
+A TODO isn't a bad thing - it's signaling a future developer (possibly yourself) that a
+consideration was made, but omitted for various reasons.  It can also serve as a useful signal when
+debugging.
+
+Somtimes, we need this to mark somthing for further research and dvelop.
+
+#### Leave no TODO unassigned
+TODOs should have owners, otherwise they are unlikely to ever be resolved.
+
+    :::java
+    // Bad.
+    // TODO: Implement request backoff.
+
+    // Good.
+    // TODO(Zhao Ge): Implement request back-end API.
+
+#### In classes
+
+
+#### In methods
+One method does one thing and one thing only. Do not add condition for differnt business logic.
+In the extreme, never do this:
+
+    :::java
+    void calculate(Subject subject) {
+      double weight;
+      if (useWeightingService(subject)) {
+        try {
+          weight = weightingService.weight(subject.id);
+        } catch (RemoteException e) {
+          throw new LayerSpecificException("Failed to look up weight for " + subject, e)
+        }
+      } else {
+        weight = defaultInitialRate * (1 + onlineLearnedBoost);
+      }
+
+      // Use weight here for further calculations
+    }
+
+Instead do this:
+
+    :::java
+    void calculate(Subject subject) {
+      double weight = calculateWeight(subject);
+
+      // Use weight here for further calculations
+    }
+
+    private double calculateWeight(Subject subject) throws LayerSpecificException {
+      if (useWeightingService(subject)) {
+        return fetchSubjectWeight(subject.id)
+      } else {
+        return currentDefaultRate();
+      }
+    }
+
+    private double fetchSubjectWeight(long subjectId) {
+      try {
+        return weightingService.weight(subjectId);
+      } catch (RemoteException e) {
+        throw new LayerSpecificException("Failed to look up weight for " + subject, e)
+      }
+    }
+
+    private double currentDefaultRate() {
+      defaultInitialRate * (1 + onlineLearnedBoost);
+    }
+
+### Don't Repeat Yourself ([DRY](http://en.wikipedia.org/wiki/Don't_repeat_yourself))
+For a more long-winded discussion on this topic, read
+[here](http://c2.com/cgi/wiki?DontRepeatYourself).
+
+#### Extract constants whenever it makes sense
+
+#### Centralize duplicate logic in utility functions
+
+### Avoid unnecessary code
+
+#### Superfluous temporary variables.
+
+    :::java
+    // Bad.
+    List<String> strings = fetchStrings();
+    return strings;
+
+    // Good.
+    return fetchStrings();
+
+#### Unneeded assignment.
+
+    :::java
+    // Bad.
+    String value = null;
+    try {
+      value = "The value is " + parse(foo);
+    } catch (BadException e) {
+      throw new IllegalStateException(e);
+    }
+
+    // Good
+    String value;
+    try {
+      value = "The value is " + parse(foo);
+    } catch (BadException e) {
+      throw new IllegalStateException(e);
+    }
+
+### The 'fast' implementation
+
+    :::java
+    int fastAdd(Iterable<Integer> ints);
+
+    // Why would the caller ever use this when there's a 'fast' add?
+    int add(Iterable<Integer> ints);
+
+
+Thank you.

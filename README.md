@@ -18,7 +18,7 @@ Command + Option + L
 Command + Option + O
 
 #### Indent style
-Indent size is 2 columns.
+Indent size is 4 columns.
 
     :::java
     // Like this.

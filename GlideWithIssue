@@ -22,28 +22,29 @@ If you use with(getActivity()) Glide subscribes to the Activity's lifecycle even
 
 To apply this in practice try to use with(this) when possible, but when it's not, like in an adapter, or a centralized image loading method, pass in a RequestManager glide as an argument and use glide.load(..., for example:
 
-    static loadImage(RequestManager glide, String url, ImageView view) {
-        glide.load(url).into(view);
-    }
+	static loadImage(RequestManager glide, String url, ImageView view) {
+		glide.load(url).into(view);
+	}
   
 or in adapter:
 
-  class MyAdapter extends WhichEveryOneYouUse {
-      private final RequestManager glide;
-      MyAdapter(RequestManager glide, ...) {
-          this.glide = glide;
-          ...
-      }
-      void getView/onBindViewHolder(... int position) {
-          // ... holder magic, and get current item for position
-          glide.load... or even loadImage(glide, item.url, holder.image);
-      }
-  }
+	class MyAdapter extends WhichEveryOneYouUse {
+	  private final RequestManager glide;
+	  MyAdapter(RequestManager glide, ...) {
+		  this.glide = glide;
+		  ...
+	  }
+	  void getView/onBindViewHolder(... int position) {
+		  // ... holder magic, and get current item for position
+		  glide.load... or even loadImage(glide, item.url, holder.image);
+	  }
+	}
+  
 and use these from Activity/Fragment:
 
   loadImage(Glide.with(this), url, findViewById(R.id.image));
 
-  // or
+// or
 
   list.setAdapter(new MyAdapter(Glide.with(this), data));
 

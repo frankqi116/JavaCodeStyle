@@ -42,11 +42,11 @@ or in adapter:
   
 and use these from Activity/Fragment:
 
-  loadImage(Glide.with(this), url, findViewById(R.id.image));
+	loadImage(Glide.with(this), url, findViewById(R.id.image));
 
 // or
 
-  list.setAdapter(new MyAdapter(Glide.with(this), data));
+	list.setAdapter(new MyAdapter(Glide.with(this), data));
 
 
 thanks to this

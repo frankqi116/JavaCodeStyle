@@ -5,8 +5,7 @@
     2. then notify UI that registration has completed, so the progress indicator can be hidden.
 
 
-  Code:
-    # MainActivity
+  Code in MainActivity
 
     // Register for GCM
     private void setupGCM(final SharedPreferences prefs) {
@@ -28,8 +27,9 @@
         });
     }
 
-    # SplashFragment
+  Code in SplashFragment
 
+    // Register brodcast receiver
     private BroadcastReceiver mRegistrationBroadcastReceiver = new BroadcastReceiver() {
 
         @Override
